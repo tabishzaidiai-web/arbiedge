@@ -1,0 +1,21 @@
+{
+  "name": "arbiedge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ArbiEdge - AI-Powered Deal Validator for Amazon Online Arbitrage",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 8000",
+    "build": "cd frontend && npm run build",
+    "lint": "cd frontend && npm run lint",
+    "db:migrate": "cd backend && alembic upgrade head",
+    "db:revision": "cd backend && alembic revision --autogenerate -m",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
