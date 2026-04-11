@@ -1,64 +1,166 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { calculateProfit } from '@/lib/api';
+import { signOut } from '@/lib/auth';
+
+const CATEGORIES = ['Electronics', 'Kitchen', 'Sports', 'Office', 'Books', 'Clothing', 'Toys', 'Health', 'Automotive', 'Other'];
+
+interface CalcResult {
+  gross_profit: number;
+  net_profit: number;
+  roi_percent: number;
+  referral_fee: number;
+  fba_fee: number;
+  total_fees: number;
+  margin_percent: number;
+}
 
 export default function CalculatorPage() {
-  const [buyPrice, setBuyPrice] = useState('18.99');
-  const [sellPrice, setSellPrice] = useState('34.99');
-  const [weight, setWeight] = useState('1.0');
-  const [result, setResult] = useState(null as any);
+  const [form, setForm] = useState({ buy_price: '18.99', sell_price: '34.99', category: 'Electronics', weight_oz: '8.0' });
+  const [result, setResult] = useState<CalcResult | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const calculate = () => {
-    const buy = parseFloat(buyPrice);
-    const sell = parseFloat(sellPrice);
-    const w = parseFloat(weight);
-    const referralFee = +(sell * 0.15).toFixed(2);
-    const fulfillmentFee = +(w <= 1 ? 3.86 : w <= 2 ? 5.40 : 5.40 + 0.40 * (w - 2)).toFixed(2);
-    const storageFee = 0.45;
-    const prepCost = 0.50;
-    const shippingCost = +(w * 0.40).toFixed(2);
-    const totalCosts = +(buy + referralFee + fulfillmentFee + storageFee + prepCost + shippingCost).toFixed(2);
-    const netProfit = +(sell - totalCosts).toFixed(2);
-    const roi = +((netProfit / buy) * 100).toFixed(1);
-    setResult({ referralFee, fulfillmentFee, storageFee, prepCost, shippingCost, totalCosts, netProfit, roi });
+  const handleCalculate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const data = await calculateProfit({
+        buy_price: parseFloat(form.buy_price),
+        sell_price: parseFloat(form.sell_price),
+        category: form.category,
+        weight_oz: parseFloat(form.weight_oz),
+      }) as CalcResult;
+      setResult(data);
+    } catch {
+      // Fallback: local calculation
+      const buyP = parseFloat(form.buy_price);
+      const sellP = parseFloat(form.sell_price);
+      const referralFee = sellP * 0.15;
+      const fbaFee = 3.22;
+      const totalFees = referralFee + fbaFee;
+      const netProfit = sellP - buyP - totalFees;
+      setResult({
+        gross_profit: sellP - buyP,
+        net_profit: netProfit,
+        roi_percent: Math.round((netProfit / buyP) * 100 * 10) / 10,
+        referral_fee: referralFee,
+        fba_fee: fbaFee,
+        total_fees: totalFees,
+        margin_percent: Math.round((netProfit / sellP) * 100 * 10) / 10,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const profitColor = result && result.net_profit > 0 ? 'text-green-600' : 'text-red-600';
 
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-3 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold text-blue-700">ArbiEdge</Link>
-        <div className="flex gap-6 text-sm">
-          <Link href="/dashboard" className="text-gray-600">Dashboard</Link>
-          <Link href="/deals" className="text-gray-600">Deals</Link>
+        <div className="flex gap-6 items-center">
+          <Link href="/dashboard" className="text-gray-600 hover:text-blue-600">Dashboard</Link>
+          <Link href="/deals" className="text-gray-600 hover:text-blue-600">Deals</Link>
           <Link href="/calculator" className="text-blue-600 font-medium">Calculator</Link>
+          <button onClick={signOut} className="text-sm text-red-500 hover:text-red-700">Sign out</button>
         </div>
       </nav>
-      <div className="max-w-3xl mx-auto px-6 py-8">
+
+      <div className="max-w-4xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-bold mb-6">ROI Calculator</h1>
-        <div className="bg-white rounded-xl border p-6">
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div><label className="block text-sm font-medium mb-1">Buy Price ($)</label><input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)} className="w-full border rounded-lg px-3 py-2" /></div>
-            <div><label className="block text-sm font-medium mb-1">Sell Price ($)</label><input type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} className="w-full border rounded-lg px-3 py-2" /></div>
-            <div><label className="block text-sm font-medium mb-1">Weight (lbs)</label><input type="number" value={weight} onChange={e => setWeight(e.target.value)} className="w-full border rounded-lg px-3 py-2" /></div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Input Form */}
+          <div className="bg-white rounded-xl border p-6">
+            <h2 className="text-lg font-semibold mb-4">Product Details</h2>
+            <form onSubmit={handleCalculate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Buy Price ($)</label>
+                <input
+                  type="number" step="0.01" value={form.buy_price}
+                  onChange={e => setForm({...form, buy_price: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="18.99" required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Sell Price ($)</label>
+                <input
+                  type="number" step="0.01" value={form.sell_price}
+                  onChange={e => setForm({...form, sell_price: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="34.99" required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  value={form.category}
+                  onChange={e => setForm({...form, category: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Weight (oz)</label>
+                <input
+                  type="number" step="0.1" value={form.weight_oz}
+                  onChange={e => setForm({...form, weight_oz: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="8.0"
+                />
+              </div>
+              <button
+                type="submit" disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Calculating...' : 'Calculate ROI'}
+              </button>
+            </form>
           </div>
-          <button onClick={calculate} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Calculate Profit</button>
-          {result && (
-            <div className="mt-6 border-t pt-6">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-center p-4 bg-green-50 rounded-lg"><p className="text-sm text-gray-600">Net Profit</p><p className="text-3xl font-bold text-green-600">${'{'}result.netProfit{'}'}</p></div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg"><p className="text-sm text-gray-600">ROI</p><p className="text-3xl font-bold text-blue-600">{result.roi}%</p></div>
+
+          {/* Results */}
+          <div className="bg-white rounded-xl border p-6">
+            <h2 className="text-lg font-semibold mb-4">Results</h2>
+            {result ? (
+              <div className="space-y-3">
+                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                  <p className="text-sm text-gray-500">Net Profit</p>
+                  <p className={`text-3xl font-bold ${profitColor}`}>${result.net_profit?.toFixed(2)}</p>
+                  <p className={`text-lg font-semibold ${profitColor}`}>ROI: {result.roi_percent}%</p>
+                </div>
+                {[
+                  { label: 'Gross Profit', value: `$${result.gross_profit?.toFixed(2)}` },
+                  { label: 'Referral Fee (15%)', value: `$${result.referral_fee?.toFixed(2)}` },
+                  { label: 'FBA Fulfillment Fee', value: `$${result.fba_fee?.toFixed(2)}` },
+                  { label: 'Total Fees', value: `$${result.total_fees?.toFixed(2)}` },
+                  { label: 'Profit Margin', value: `${result.margin_percent}%` },
+                ].map(item => (
+                  <div key={item.label} className="flex justify-between text-sm py-2 border-b last:border-0">
+                    <span className="text-gray-600">{item.label}</span>
+                    <span className="font-semibold">{item.value}</span>
+                  </div>
+                ))}
+                <div className={`mt-4 p-3 rounded-lg text-center text-sm font-medium ${
+                  result.roi_percent >= 30 ? 'bg-green-50 text-green-700' :
+                  result.roi_percent >= 15 ? 'bg-yellow-50 text-yellow-700' :
+                  'bg-red-50 text-red-700'
+                }`}>
+                  {result.roi_percent >= 30 ? 'Excellent deal - proceed!' :
+                   result.roi_percent >= 15 ? 'Decent deal - review carefully' :
+                   'Low ROI - consider skipping'}
+                </div>
               </div>
-              <h3 className="font-semibold mb-3">Fee Breakdown</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-gray-600">Referral Fee</span><span>${'{'}result.referralFee{'}'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Fulfillment Fee</span><span>${'{'}result.fulfillmentFee{'}'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Storage Fee</span><span>${'{'}result.storageFee{'}'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Prep Cost</span><span>${'{'}result.prepCost{'}'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Shipping</span><span>${'{'}result.shippingCost{'}'}</span></div>
-                <div className="flex justify-between border-t pt-2 font-semibold"><span>Total Costs</span><span>${'{'}result.totalCosts{'}'}</span></div>
+            ) : (
+              <div className="text-center text-gray-400 py-12">
+                <p className="text-4xl mb-3">📊</p>
+                <p>Enter product details and click Calculate to see your FBA profit breakdown</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
