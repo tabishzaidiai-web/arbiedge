@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: arbiedge-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_STARTER_PRICE_ID
+        sync: false
+      - key: STRIPE_PRO_PRICE_ID
+        sync: false
+      - key: STRIPE_ENTERPRISE_PRICE_ID
+        sync: false
+      - key: SP_API_CLIENT_ID
+        sync: false
+      - key: SP_API_CLIENT_SECRET
+        sync: false
+      - key: SP_API_REFRESH_TOKEN
+        sync: false
+      - key: SP_API_MARKETPLACE_ID
+        value: ATVPDKIKX0DER
+      - key: PA_API_ACCESS_KEY
+        sync: false
+      - key: PA_API_SECRET_KEY
+        sync: false
+      - key: PA_API_PARTNER_TAG
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12"
