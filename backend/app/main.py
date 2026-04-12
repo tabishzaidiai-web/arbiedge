@@ -1,19 +1,25 @@
 """ArbiEdge FastAPI application entry point."""
-
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.database import engine, Base
 from app.api import auth, deals, products, prices, profit, dashboard, reports, user_settings, scan
+
+# Import all models so Base knows about them
+from app.models import user, deal, product, price_snapshot, report  # noqa: F401
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup - create all tables
     print(f"Starting {settings.APP_NAME} API server...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("Database tables created/verified.")
     yield
     # Shutdown
     print(f"Shutting down {settings.APP_NAME} API server...")
